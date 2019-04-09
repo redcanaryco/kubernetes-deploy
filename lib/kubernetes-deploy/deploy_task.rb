@@ -305,6 +305,15 @@ module KubernetesDeploy
           raise InvalidTemplateError.new("Template is not a valid Kubernetes manifest",
             filename: filename, content: doc)
         end
+        if doc["sops"].present?
+          stdout, stderr, status = Open3.capture3("sops --input-type yaml --output-type yaml --decrypt /dev/stdin", stdin_data: doc.to_yaml)
+          if status.success?
+            @logger.summary.add_paragraph("Decrypted contents with SOPS")
+            doc = YAML.safe_load(stdout)
+          else
+            raise FatalDeploymentError, "Failed to decrypt contents with SOPS"
+          end
+        end
         yield doc
       end
     rescue InvalidTemplateError => e
